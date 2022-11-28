@@ -1,0 +1,36 @@
+fdisk
+dump --inodeusertable
+dump --rootfile
+load --library ../expl/library.lib
+load --module 0 $HOME/myexpos/stages/23/MOD_0.xsm
+load --module 1 $HOME/myexpos/stages/23/MOD_1.xsm
+load --module 2 $HOME/myexpos/stages/23/MOD_2.xsm
+load --module 4 $HOME/myexpos/stages/23/MOD_4.xsm
+load --module 5 $HOME/myexpos/stages/23/MOD_5.xsm
+load --module 7 $HOME/myexpos/stages/23/BOOT.xsm
+load --init $HOME/myexpos/stages/23/shell.xsm
+load --int=timer $HOME/myexpos/stages/23/timer.xsm
+load --int=console $HOME/myexpos/stages/23/console_int.xsm
+load --int=disk $HOME/myexpos/stages/23/disk_int.xsm
+load --int=4 $HOME/myexpos/stages/23/int4.xsm
+load --int=6 $HOME/myexpos/stages/23/int6.xsm
+load --int=7 $HOME/myexpos/stages/23/int7.xsm
+load --int=8 $HOME/myexpos/stages/23/int8.xsm
+load --int=9 $HOME/myexpos/stages/23/int9.xsm
+load --int=10 $HOME/myexpos/stages/23/int10.xsm
+load --int=11 $HOME/myexpos/stages/23/int11.xsm
+load --int=13 $HOME/myexpos/stages/23/int13.xsm
+load --int=14 $HOME/myexpos/stages/23/int14.xsm
+load --int=15 $HOME/myexpos/stages/23/int15.xsm
+load --exhandler $HOME/myexpos/stages/23/exp_handler.xsm
+load --idle $HOME/myexpos/stages/12/idle.xsm
+load --os $HOME/myexpos/stages/23/os_startup.xsm
+load --data $HOME/myexpos/sample.dat
+load --exec $HOME/myexpos/stages/23/odd.xsm
+load --exec $HOME/myexpos/stages/23/even.xsm
+load --exec $HOME/myexpos/stages/23/gcd.xsm
+load --exec $HOME/myexpos/stages/23/oddevll.xsm
+load --exec $HOME/myexpos/stages/23/linklist.xsm
+load --exec $HOME/myexpos/stages/23/pid.xsm
+load --exec $HOME/myexpos/stages/23/a1.xsm
+load --exec $HOME/myexpos/stages/23/a2.xsm

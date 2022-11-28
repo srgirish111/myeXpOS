@@ -1,0 +1,73 @@
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+alias syscall R3;
+
+syscall = [([PTBR + 2 * (userSP - 5)/ 512] * 512) + ((userSP - 5) % 512)];
+alias cur_pcb_entry R6;
+cur_pcb_entry = PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16;
+
+alias physicalAddrRetVal R4;
+physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+
+if(syscall ==17) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 17;
+    alias pre_proc_table R5;
+    pre_proc_table =([cur_pcb_entry +11]*512) +512 - 16;
+    alias counter R7;
+    counter =0;
+    while( counter < 8 ) do
+        if([pre_proc_table +2*counter] ==-1) then
+            break;
+        endif;
+
+        counter =counter+1;
+    endwhile ;
+    if( counter >= 8 ) then
+            [physicalAddrRetVal] =-1;
+            goto _ret;
+    endif;
+   
+    multipush(R4,R5,R6,R7);
+    R1=ACQUIRE_SEMAPHORE;
+    R2=[SYSTEM_STATUS_TABLE+1];
+	call MOD_0;
+    multipop(R4,R5,R6,R7);
+    if( R0==-1 ) then
+        [physicalAddrRetVal] =-2;
+            goto _ret;
+    endif;
+    [pre_proc_table +2*counter+1] =R0;
+    [pre_proc_table +2*counter]  =SEMAPHORE;
+    [physicalAddrRetVal]= counter;
+    goto _ret;
+endif;
+
+if(syscall ==18) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 18;
+    alias pre_proc_table R5;
+    pre_proc_table =[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 +11]*512 + 512 - 16;
+    alias arg1 R7;//semid in preproc res table 
+    arg1 = [([PTBR + 2 * (userSP - 4)/ 512] * 512) + ((userSP - 4) % 512)];
+    if((arg1 >7) || (arg1<0) || ([pre_proc_table+2*arg1]!=SEMAPHORE)) then
+        [physicalAddrRetVal] =-1;
+        goto _ret;
+    endif;
+    multipush(R4,R5,R6,R7);
+    R1=RELEASE_SEMAPHORE;
+    R2=[pre_proc_table + 2*arg1 +1];
+	R3 = [SYSTEM_STATUS_TABLE + 1];
+	call MOD_0;
+    multipop(R4,R5,R6,R7);
+    [pre_proc_table+2*arg1] = -1;
+	[physicalAddrRetVal]=0;
+    goto _ret;
+endif;
+
+_ret:
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+ireturn;

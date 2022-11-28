@@ -1,0 +1,31 @@
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+// Setting sp to UArea Page number
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+//breakpoint;
+
+//print "timer";
+backup;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = READY;
+
+alias num R6;
+num= 0;
+
+while(num < MAX_PROC_NUM ) do
+    if([PROCESS_TABLE+num*16+4]!=TERMINATED)then
+		[PROCESS_TABLE+num*16+0]=[PROCESS_TABLE+num*16+0]+1;
+	endif;
+	num=num+1;
+endwhile ;
+
+//breakpoint;
+
+call MOD_5;
+
+
+restore;
+SP = [PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13];
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 9] = 0 ;
+//breakpoint;
+ireturn;

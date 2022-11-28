@@ -1,0 +1,66 @@
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+alias physicalPageNum R1;
+alias offset R2;
+alias syscall R3;
+physicalPageNum = [PTBR + 2 * ((userSP - 5)/ 512)];
+offset = (userSP - 5) % 512;
+syscall = [(physicalPageNum * 512) + offset];
+alias cur_pcb_entry R6;
+cur_pcb_entry = PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16;
+//getpid
+alias physicalAddrRetVal R4;
+physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+
+if( syscall == 11) then
+    [physicalAddrRetVal] =[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16+1];
+    goto _ret;
+endif ;
+
+//getppid
+if( syscall == 12) then
+    [physicalAddrRetVal] =[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16+2];
+    goto _ret;
+endif ;
+
+//wait
+if( syscall == 13) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 13;
+    alias pid R5;
+    pid =[[PTBR + 2 * ((userSP - 4) / 512)] * 512 + (userSP - 4) % 512];
+   if(pid==[SYSTEM_STATUS_TABLE+1]||[PROCESS_TABLE+pid*16 + 4]==TERMINATED || pid <0 ||pid >15) then
+        [physicalAddrRetVal] =-1;
+        goto _ret;
+   endif ;
+    [cur_pcb_entry+4]= WAIT_PROCESS;
+    [cur_pcb_entry+5]= pid;
+    multipush(R4,R5,R6);
+    call MOD_5;
+    multipop(R4,R5,R6);
+    [physicalAddrRetVal] =0;
+    goto _ret;
+endif ;
+
+//signal
+if( syscall == 14) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 14;
+    alias i R7;
+    i=0;
+    while( i<MAX_PROC_NUM ) do
+       if( [PROCESS_TABLE+i*16+ 4 ] ==WAIT_PROCESS && [PROCESS_TABLE+i*16+5]==[SYSTEM_STATUS_TABLE+1] ) then
+            [PROCESS_TABLE+ i*16 +4] = READY;
+            [PROCESS_TABLE+ i*16 + 5] =0 ;
+       endif ;
+       i=i+1;
+    endwhile ;
+    goto _ret;
+endif ;
+
+
+_ret:
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+ireturn;

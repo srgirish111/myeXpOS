@@ -1,0 +1,130 @@
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+alias physicalPageNum R1;
+alias offset R2;
+alias filenamePHYaddr R3;
+physicalPageNum = [PTBR + 2 * ((userSP - 4)/ 512)];
+offset = (userSP - 4) % 512;
+filenamePHYaddr = (physicalPageNum * 512) + offset;
+alias filename R4;
+filename=[filenamePHYaddr];
+
+alias flag R12;
+alias counter R11;
+alias inode_entry R8;
+alias inode_index R9;
+alias userareapage R10;
+userareapage =[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] ;
+counter =0;
+flag=0;
+inode_entry =INODE_TABLE;
+
+while( counter < MAX_FILE_NUM ) do
+   if([inode_entry+1]==filename) then
+        flag =1;
+        inode_index = counter;
+   endif ;
+   inode_entry = inode_entry +16;
+   counter = counter +1;
+endwhile ;
+
+breakpoint;
+
+if( flag ==0 ) then
+  [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+  SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+  alias physicalAddrRetVal R6;
+	physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+	[physicalAddrRetVal] = -1;
+  ireturn;
+endif ;
+
+//print(inode_index);
+multipush(R8,R9,R10);
+R1=EXIT_PROCESS;
+R2=[SYSTEM_STATUS_TABLE+1];
+call MOD_1;
+multipop(R8,R9,R10);
+
+//getthe userarea page which was deallocated in exit process
+[MEMORY_FREE_LIST + userareapage] = [MEMORY_FREE_LIST + userareapage]+1;
+[SYSTEM_STATUS_TABLE+2] = [SYSTEM_STATUS_TABLE+2] - 1 ;//memfree
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+
+[PROCESS_TABLE +[SYSTEM_STATUS_TABLE+1]*16 + 4] =RUNNING;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 + 7] =inode_index;
+
+
+[PTBR+0] = 63;
+[PTBR+1] = "0100";
+[PTBR+2] = 64;
+[PTBR+3] = "0100";
+
+
+//breakpoint;
+multipush(R8,R9,R10,R11);
+R1 = GET_FREE_PAGE;
+call MOD_2;//memory manager
+[PTBR+ 4] = R0;
+[PTBR+ 5] ="0110";
+multipop(R8,R9,R10,R11);
+//breakpoint;
+
+multipush(R8,R9,R10,R11);
+R1 = GET_FREE_PAGE;
+call MOD_2;//memory manager
+[PTBR+ 6] = R0;
+[PTBR+ 7] ="0110";
+multipop(R8,R9,R10,R11);
+
+multipush(R8,R9,R10,R11);
+R1 = GET_FREE_PAGE;
+call MOD_2;//memory manager
+[PTBR+ 16] = R0;
+[PTBR+ 17] ="0110";
+multipop(R8,R9,R10,R11);
+
+multipush(R8,R9,R10,R11);
+R1 = GET_FREE_PAGE;
+call MOD_2;//memory manager
+[PTBR+ 18] = R0;
+[PTBR+ 19] ="0110";
+multipop(R8,R9,R10,R11);
+
+
+alias inodeentry R12;
+inodeentry = INODE_TABLE+ [PROCESS_TABLE + [SYSTEM_STATUS_TABLE +1]*16 +7]*16 ;
+counter= 0 ;
+//alias size R8;
+//size= [inodeentry+2]/512;
+//if( [inodeentry+2]%512 >0) then
+  //size= size +1;
+//endif ;
+
+while([ inodeentry+8+ counter] !=-1 && counter<4 ) do
+    multipush(R8,R9,R10,R11,R12);
+    R1 = GET_FREE_PAGE;
+    call MOD_2;//memory manager
+    multipop(R8,R9,R10,R11,R12);
+    [PTBR+ 8 + 2*counter]= R0;
+    [PTBR+ 8 + 2*counter+1]="0100";
+    R3= [inodeentry+ 8+counter];
+    loadi(R0,R3);
+    counter =counter +1;
+endwhile;
+
+
+[PROCESS_TABLE + 13+[SYSTEM_STATUS_TABLE+1]*16] =8*512;
+[[PTBR+16]*512 ]= [[PTBR+8]*512 +1];
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+breakpoint;
+
+  //alias physicalAddrRetVal R6;
+	//physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+	//[physicalAddrRetVal] = 0;
+ireturn;

@@ -1,0 +1,10 @@
+cd ..
+./spl /home/giri/myexpos/stages/19/BOOT.spl
+./spl /home/giri/myexpos/stages/19/exp_handler.spl
+./spl /home/giri/myexpos/stages/19/int9.spl
+./spl /home/giri/myexpos/stages/19/MOD_1.spl
+./spl /home/giri/myexpos/stages/19/MOD_2.spl
+./spl /home/giri/myexpos/stages/19/timer.spl
+cd ../expl/
+./expl /home/giri/myexpos/stages/19/shell.expl
+./expl /home/giri/myexpos/stages/19/a/linklist.expl

@@ -1,0 +1,159 @@
+//breakpoint;
+alias pid R6;
+alias proc_entry R7;
+alias userSP R8;
+
+userSP = SP;
+pid =[SYSTEM_STATUS_TABLE+1];
+proc_entry = PROCESS_TABLE+ pid*16 ;
+[proc_entry + 13] = SP;
+SP = [proc_entry + 11] * 512 - 1;
+[proc_entry + 9] = 8;
+multipush(R6,R7,R8);
+R1=GET_PCB_ENTRY;
+call MOD_1;//process manager
+multipop(R6,R7,R8);
+
+//breakpoint;
+if( R0==-1 ) then
+    [proc_entry + 9] = 0;
+    SP = [proc_entry + 13];
+    alias physicalAddrRetVal R9;
+	  physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+	  [physicalAddrRetVal] = -1;
+    ireturn;
+endif ;
+breakpoint;
+[PROCESS_TABLE+16*R0 +1] =R0;
+alias new_pid R5;
+new_pid =R0;
+alias new_pcb R9;
+
+new_pcb = PROCESS_TABLE + R0*16;
+if([PTBR+4]==-1) then
+        multipush(R5,R6,R7,R8,R9);
+        R1=GET_FREE_PAGE;
+        call MOD_2;
+        [PTBR+4]=R0;
+        [PTBR+5]="1110";
+        R1=GET_FREE_PAGE;
+        call MOD_2;
+        multipop(R5,R6,R7,R8,R9);
+        [PTBR+6]=R0;
+        [PTBR+7]="1110";
+endif;
+breakpoint;
+alias s1 R10;
+alias s2 R11;
+multipush(R5,R6,R7,R8,R9);
+R1=GET_FREE_PAGE;
+call MOD_2;
+multipop(R5,R6,R7,R8,R9);
+s1= R0;
+
+multipush(R5,R6,R7,R8,R9,R10);
+R1=GET_FREE_PAGE;
+call MOD_2;
+multipop(R5,R6,R7,R8,R9,R10);
+s2= R0;
+
+multipush(R5,R6,R7,R8,R9,R10,R11);
+R1=GET_FREE_PAGE;
+call MOD_2;
+multipop(R5,R6,R7,R8,R9,R10,R11);
+//usrarpage
+[new_pcb+11] =R0;
+//breakpoint;
+alias new_ptbr R12;
+new_ptbr =PAGE_TABLE_BASE+new_pid*20;
+[new_ptbr+ 16]= s1;
+[new_ptbr+ 17]= [PTBR + 17];   
+
+[new_ptbr+ 18]= s2;
+[new_ptbr+ 19]= [PTBR + 19];  
+
+//userid
+[new_pcb+3] =[proc_entry+3];
+//swapflag
+[new_pcb+6] =[proc_entry+6];
+//user area swap status
+[new_pcb+10] =[proc_entry+10];
+//inode index
+[new_pcb+7] =[proc_entry+7];
+//UPTR
+[new_pcb+13] =[proc_entry+13];
+
+
+//tick
+[new_pcb+0] =0;
+
+//ppid
+[new_pcb+2] =[SYSTEM_STATUS_TABLE+1];
+
+//State
+[new_pcb+4] = CREATED;
+
+//mode flag
+[new_pcb+9] =0;
+
+//KPTR
+[new_pcb+12] =0;
+
+alias cntr R4;
+
+//per-process resource table
+cntr = 496;
+alias res_tab R11;
+res_tab = [new_pcb + 11] * 512 + cntr;
+cntr=0;
+while(cntr <8 ) do                       // Copying the entries of the per-process resource table of the parent into the child
+    [res_tab + 2*cntr] = [[proc_entry + 11] * 512 +512-16 +2*cntr];
+    [res_tab + 2*cntr+1] = [[proc_entry + 11] * 512 +512 -16+ 2*cntr+1];
+    alias temp R14;
+   if([res_tab+ 2*cntr]==SEMAPHORE) then
+        temp =[ res_tab + 2*cntr+1];
+        [SEMAPHORE_TABLE + 4*temp +1] =[SEMAPHORE_TABLE + 4*temp +1]+1;
+   endif ;
+    cntr = cntr + 1;
+endwhile;
+
+
+//copy preprocess disk map
+cntr =2;
+while( cntr<10 ) do
+    [DISK_MAP_TABLE + new_pid*10+ cntr] = [DISK_MAP_TABLE + pid*10+ cntr];
+    cntr =cntr +1;
+endwhile;
+
+cntr =0;
+while( cntr <16 ) do
+    [new_ptbr+ cntr ] = [PTBR+cntr ];
+    [new_ptbr+ cntr +1 ] = [PTBR+cntr +1 ];
+    [MEMORY_FREE_LIST+ [PTBR+cntr] ] =[MEMORY_FREE_LIST+ [PTBR+cntr] ]+1; 
+    cntr =cntr +2;
+endwhile;
+
+cntr = 0;
+while(cntr < 512) do
+    [[new_ptbr + 16] * 512 + cntr] = [[PTBR + 16] * 512 + cntr];  // stack page 1
+    [[new_ptbr + 18] * 512 + cntr] = [[PTBR + 18] * 512 + cntr];  // stack page 2
+    cntr = cntr + 1;
+endwhile;
+
+
+alias cksp R13;
+cksp = [new_pcb+11]*512;
+[cksp] = BP;
+
+
+alias physicalAddrRetVal R13;
+physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+[physicalAddrRetVal] = new_pid;
+
+physicalAddrRetVal = ([new_ptbr + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+[physicalAddrRetVal] =0;
+
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+//breakpoint;
+ireturn;

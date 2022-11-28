@@ -1,0 +1,25 @@
+int main(){
+decl
+	int x,y;
+enddecl
+
+begin
+	x = exposcall("Fork");
+	breakpoint;
+	y = exposcall("Write", -2, x);
+	breakpoint;
+    x = exposcall("Fork");
+	breakpoint;
+	y = exposcall("Write", -2, x);
+	breakpoint;
+    x = exposcall("Fork");
+	//breakpoint;
+	y = exposcall("Write", -2, x);
+
+    x = exposcall("Fork");
+	//breakpoint;
+	y = exposcall("Write", -2, x);
+
+return 0;
+end
+}

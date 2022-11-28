@@ -1,0 +1,45 @@
+//device manager
+alias functionNum R1;
+alias currentPID R2;
+
+if( functionNum ==TERMINAL_WRITE ) then
+    	multipush(R0,R1,R2,R3);
+        functionNum =8;
+        currentPID =[SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;//resource manager
+    	multipop(R0,R1,R2,R3);
+        print R3;
+        multipush(R0,R1,R2,R3);
+        functionNum =9;
+        currentPID =[SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;
+        alias temp R4;
+        temp = R0;
+        multipop(R0,R1,R2,R3);
+        return;
+endif ;
+
+if( functionNum == TERMINAL_READ ) then
+        multipush(R0,R1,R2,R3);
+        R1=ACQUIRE_TERMINAL;
+        call MOD_0;//resource manager
+        multipop(R0,R1,R2,R3);
+
+        read;
+        [PROCESS_TABLE + 16*currentPID + 4] = WAIT_TERMINAL;
+
+        multipush(R0,R1,R2,R3);
+        call MOD_5;
+        multipop(R0,R1,R2,R3);
+        alias temp R4;
+        temp = [ [PROCESS_TABLE + ( currentPID * 16) + 14] + 2 * (R3 / 512)] * 512 + (R3 % 512);
+	    [temp] = [PROCESS_TABLE + ( currentPID * 16) + 8];
+        //r3 has word address(logical) process table entry + 8 has input buffer
+        return;
+
+endif ;
+
+
+
+
+return;

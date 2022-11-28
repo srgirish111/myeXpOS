@@ -1,0 +1,10 @@
+cd ..
+./spl /home/giri/myexpos/stages/18/BOOT.spl
+./spl /home/giri/myexpos/stages/18/disk_int.spl
+./spl /home/giri/myexpos/stages/18/int9.spl
+./spl /home/giri/myexpos/stages/18/MOD_0.spl
+./spl /home/giri/myexpos/stages/18/MOD_4.spl
+./spl /home/giri/myexpos/stages/18/MOD_5.spl
+cd ../expl/
+./expl /home/giri/myexpos/stages/18/shell.expl
+./expl /home/giri/myexpos/stages/18/odd.expl

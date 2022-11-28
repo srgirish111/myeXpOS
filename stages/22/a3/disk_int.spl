@@ -1,0 +1,21 @@
+//breakpoint;
+[DISK_STATUS_TABLE+5] = [DISK_STATUS_TABLE+5]+1;
+[PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE+1]+ 13] = SP;
+SP= [PROCESS_TABLE + (16*[SYSTEM_STATUS_TABLE+1]) + 11]*512 -1;
+backup;
+[DISK_STATUS_TABLE+0] =0;
+
+alias cntr R0;
+cntr =0;
+while( cntr <MAX_PROC_NUM ) do
+   if( [PROCESS_TABLE+cntr*16+4]==WAIT_DISK) then
+        [PROCESS_TABLE+cntr*16+4] =READY;
+   endif ;
+    cntr = cntr +1;
+endwhile ;
+restore;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+
+//breakpoint;
+ireturn;

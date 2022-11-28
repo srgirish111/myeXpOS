@@ -1,0 +1,20 @@
+alias functionNum R1;
+alias currentPID R2;
+
+if( functionNum ==3 ) then
+    	multipush(R1,R2,R3);
+        functionNum =8;//acquire terminal
+        currentPID =[SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;//process_manager
+    	multipop(R1,R2,R3);
+        print R3;
+        multipush(R0,R1,R2,R3);
+        functionNum =9;//release terminal
+        currentPID =[SYSTEM_STATUS_TABLE + 1];
+        call MOD_0;
+        alias temp R4;
+        temp = R0;
+        multipop(R0,R1,R2,R3);
+        return;
+endif ;
+return;

@@ -1,0 +1,72 @@
+alias userSP R9;
+userSP =SP;
+[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 9] =-1;
+[PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE+1]+ 13] = SP;
+SP= [PROCESS_TABLE + (16*[SYSTEM_STATUS_TABLE+1]) + 11]*512 -1;
+backup;
+
+multipush(EIP);
+//breakpoint;
+if( EC!=0 ||userSP==PTLR*512 - 1) then
+   if( EC==1 ) then
+        print("insaccesserr");
+   endif ;
+   if( EC== 2) then
+        print("memaccesserr");
+   endif ;
+   if( EC== 3) then
+        print("arith_err");
+   endif ;
+   if( userSP==PTLR*512 - 1) then
+        print("STACKFULL");
+   endif ;
+    //write exit here
+     R1=EXIT_PROCESS;
+     R2=[SYSTEM_STATUS_TABLE+1];
+     call MOD_1;
+     call CONTEXT_SWITCH;
+endif ;
+
+if( EC==0 ) then
+     alias disk_map_tab R7;
+     disk_map_tab =DISK_MAP_TABLE+10*[SYSTEM_STATUS_TABLE+1];
+     alias cntr R8;
+     cntr=0;
+     disk_map_tab = disk_map_tab+EPN;
+    if( 4<=EPN  && EPN<=7 ) then
+          breakpoint;
+          multipush(R7,R8);
+          R1=GET_CODE_PAGE;
+          R2=[disk_map_tab];
+          call MOD_2;
+          multipop(R7,R8);
+          [PTBR+EPN*2]=R0;
+          [PTBR+EPN*2+1]="1100";
+          breakpoint;
+     endif;
+    if( EPN==3||EPN==2 ) then
+          //breakpoint;
+          multipush(R7,R8);
+          R1=GET_FREE_PAGE;
+          call MOD_2;
+          multipop(R7,R8);
+          [PTBR+EPN*2]=R0;
+          [PTBR+EPN*2+1]="1110";
+          //breakpoint;
+          multipush(R7,R8);
+          R1=GET_FREE_PAGE;
+          call MOD_2;
+          multipop(R7,R8);
+          [PTBR+EPN*2 +2]=R0;
+          [PTBR+EPN*2 +3]="1110";
+          //breakpoint;
+    endif ;
+
+endif ;
+multipop(EIP);
+restore;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+[PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16 + 9]= 0;
+SP=SP+1;
+[[PTBR + 2 * (SP / 512)] * 512 + (SP % 512)]=EIP;
+ireturn;

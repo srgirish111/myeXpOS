@@ -1,0 +1,9 @@
+[DISK_STATUS_TABLE+5] =[DISK_STATUS_TABLE+5]+1;
+print("MAX_MEM");
+print( [TERMINAL_STATUS_TABLE + 2]);
+print("KERNEL");
+print([DISK_STATUS_TABLE+5]);
+print("CON_SW");
+print([TERMINAL_STATUS_TABLE + 3]);
+
+halt;

@@ -1,0 +1,18 @@
+[PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 4] = TERMINATED ;
+//breakpoint;
+alias counter R1;
+counter = 1;
+alias flag R2;
+flag = 0;
+while ( counter<=15 ) do
+	if ([PROCESS_TABLE + (counter * 16) + 4] != TERMINATED) then
+		flag = 1;
+		break;
+	endif;
+	counter = counter +1;
+endwhile;
+if (flag == 0) then
+	halt;
+endif;
+//breakpoint;
+call MOD_5;

@@ -1,0 +1,125 @@
+alias functionNum R1;
+alias currentPID R2;
+
+if( functionNum ==RELEASE_BLOCK ) then
+    alias diskblcknum R2;
+    [DISK_FREE_LIST +diskblcknum] =[DISK_FREE_LIST +diskblcknum] -1;
+    return;
+endif ;
+if( functionNum ==GET_FREE_PAGE ) then
+    [SYSTEM_STATUS_TABLE +3] =[SYSTEM_STATUS_TABLE +3] +1;
+
+    while( [SYSTEM_STATUS_TABLE+2]==0 ) do
+        [PROCESS_TABLE + 16*[SYSTEM_STATUS_TABLE+1] + 4]=WAIT_MEM;
+        multipush(R1, R2);
+        call CONTEXT_SWITCH;
+        multipop(R1, R2);
+    endwhile ;
+    [SYSTEM_STATUS_TABLE+2]=[SYSTEM_STATUS_TABLE+2]-1;
+    [SYSTEM_STATUS_TABLE+3]=[SYSTEM_STATUS_TABLE+3]-1;
+    if( [SYSTEM_STATUS_TABLE + 2] < [TERMINAL_STATUS_TABLE + 2]) then
+            [TERMINAL_STATUS_TABLE + 2] =[SYSTEM_STATUS_TABLE + 2];
+    endif;
+    alias counter R2;
+    counter =76;
+    while( counter <MAX_MEM_PAGE ) do
+       if( [MEMORY_FREE_LIST+counter]==0 ) then
+            [MEMORY_FREE_LIST+counter]=1;
+            R0 =counter;
+            return;
+       endif ;
+        counter = counter+1;
+    endwhile ;
+
+    R0 =-1;
+
+    return;
+endif ;
+
+if( functionNum == RELEASE_PAGE) then
+    [MEMORY_FREE_LIST +R2] =[MEMORY_FREE_LIST +R2] -1;
+    if([MEMORY_FREE_LIST + R2] == 0) then
+        [SYSTEM_STATUS_TABLE + 2] = [SYSTEM_STATUS_TABLE + 2] + 1;      // If this page is no longer used, then increment the number of free pages
+    endif;
+    alias counter R4;
+    counter = 0;
+
+    while(counter < MAX_PROC_NUM) do
+        if([PROCESS_TABLE + 16*counter + 4] == WAIT_MEM) then
+            [PROCESS_TABLE + 16*counter + 4] = READY;
+        endif;
+        counter = counter + 1;
+    endwhile;
+   return;
+endif ;
+
+if( functionNum==GET_CODE_PAGE ) then
+   //breakpoint;
+    alias cntr R5;
+    cntr= 0;
+    alias flag R7;
+    flag =0;
+    alias blck_num R2;
+    alias ans R9;
+    while( cntr<MAX_PROC_NUM && flag ==0 ) do
+        alias pre_d_map R6;
+        pre_d_map= DISK_MAP_TABLE+ cntr*10 ;
+        alias i R8;
+        i=4;
+        alias ptbr R10;
+        ptbr= PAGE_TABLE_BASE+cntr*20;
+        while(i<8) do
+           if( blck_num==[pre_d_map+i] && [ptbr+2*i]!=-1 ) then
+            //breakpoint;
+            flag =1;
+            ans =[ptbr+i*2];
+            break;
+           endif ;
+           i= i+1;
+        endwhile ;
+        cntr =cntr+1;
+    endwhile;
+    //breakpoint;
+    if( flag==1 ) then
+        R0=ans;
+        [MEMORY_FREE_LIST+ans] =[MEMORY_FREE_LIST+ans]+1;
+        return;
+    endif;
+    //breakpoint;
+    multipush(R2);
+    R1=GET_FREE_PAGE;
+    call MOD_2;
+    multipop(R2);
+    multipush(R0,R2);
+    R1=DISK_LOAD;
+    R4=blck_num;
+    R2=[SYSTEM_STATUS_TABLE+1];
+    R3= R0;
+    call MOD_4;
+    multipop(R0,R2);
+    //breakpoint;
+    return;
+endif;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+return;

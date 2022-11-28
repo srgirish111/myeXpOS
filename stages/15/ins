@@ -1,0 +1,14 @@
+fdisk
+load --library ../expl/library.lib
+load --module 0 $HOME/myexpos/stages/15/MOD_0.xsm
+load --module 4 $HOME/myexpos/stages/15/MOD_4.xsm
+load --module 5 $HOME/myexpos/stages/15/MOD_5.xsm
+load --module 7 $HOME/myexpos/stages/15/BOOT.xsm
+load --init $HOME/myexpos/stages/14/odd.xsm
+load --exec $HOME/myexpos/stages/14/even.xsm
+load --int=10 $HOME/myexpos/stages/14/haltprog.xsm
+load --exhandler $HOME/myexpos/stages/14/haltprog.xsm
+load --int=timer $HOME/myexpos/stages/14/timer.xsm
+load --int=7 $HOME/myexpos/stages/15/int7.xsm
+load --idle $HOME/myexpos/stages/12/idle.xsm
+load --os $HOME/myexpos/stages/14/os_startup.xsm

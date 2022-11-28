@@ -1,0 +1,80 @@
+alias userSP R0;
+userSP = SP;
+[DISK_STATUS_TABLE+5] =[DISK_STATUS_TABLE+5]+1;
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+alias syscall R3;
+
+syscall = [([PTBR + 2 * (userSP - 5)/ 512] * 512) + ((userSP - 5) % 512)];
+alias cur_pcb_entry R6;
+cur_pcb_entry = PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16;
+
+alias physicalAddrRetVal R4;
+physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+//semlock
+if( syscall == 19) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 19;
+    alias pre_proc_table R5;
+    pre_proc_table =([cur_pcb_entry +11]*512) +512 - 16;
+    alias arg1 R7;
+    arg1 = [([PTBR + 2 * (userSP - 4)/ 512] * 512) + ((userSP - 4) % 512)];
+    if(arg1 >7 || arg1<0 || [pre_proc_table+2*arg1]!=SEMAPHORE) then
+        [physicalAddrRetVal] =-1;
+        goto _ret;
+    endif ;
+    alias locksemid R8;
+    locksemid = [pre_proc_table + 2*arg1+1];
+    while (([SEMAPHORE_TABLE + 4 * locksemid] != -1) && ([SEMAPHORE_TABLE + 4 * locksemid] != [SYSTEM_STATUS_TABLE + 1])) do
+			[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 4] = WAIT_SEMAPHORE;
+			[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 5] = locksemid;  
+			multipush(R4, R5,R6,R7,R8);
+			call MOD_5;
+			multipop(R4,R5,R6,R7,R8);
+	endwhile;
+	[SEMAPHORE_TABLE + 4 * locksemid] = [SYSTEM_STATUS_TABLE + 1];
+	[physicalAddrRetVal] = 0;
+    goto _ret;
+endif;
+
+//semunlock
+if( syscall == 20) then
+    [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 20;
+    alias pre_proc_table R5;
+    pre_proc_table =([cur_pcb_entry +11]*512) +512 - 16;
+    alias arg1 R7;
+    arg1 = [[PTBR + 2 * (userSP - 4)/ 512] * 512 + (userSP - 4) % 512];
+    if(arg1 >7 || arg1<0 || [pre_proc_table+2*arg1]!=SEMAPHORE) then
+        [physicalAddrRetVal] =-1;
+        goto _ret;
+    endif;
+    alias locksemid R8;
+    locksemid = [pre_proc_table + 2*arg1 + 1];
+    if( [SEMAPHORE_TABLE + 4*locksemid ]!=-1 ) then
+            if([SEMAPHORE_TABLE + 4*locksemid ]!=[SYSTEM_STATUS_TABLE+1] ) then
+                    [physicalAddrRetVal] =-2;
+                    goto _ret;
+            endif;
+            [SEMAPHORE_TABLE + 4*locksemid] =-1;
+            alias i R9;
+            i=1;
+            
+            while( i< MAX_PROC_NUM ) do
+				alias proc_entry R10;
+                proc_entry =PROCESS_TABLE+16*i;
+				if( [proc_entry + 4]== WAIT_SEMAPHORE && [proc_entry+5]==locksemid) then
+						[proc_entry+4] =READY;
+						[proc_entry+5]=-1;
+				endif;
+            i=i+1;
+            endwhile ;
+    endif;
+    [physicalAddrRetVal]=0;
+   goto _ret;
+endif ;
+
+_ret:
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+ireturn;

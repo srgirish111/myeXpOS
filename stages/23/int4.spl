@@ -1,0 +1,189 @@
+alias userSP R0;
+userSP = SP;
+[PROCESS_TABLE + ( [SYSTEM_STATUS_TABLE + 1] * 16) + 13] = SP;
+SP = [PROCESS_TABLE + ([SYSTEM_STATUS_TABLE + 1] * 16) + 11] * 512 - 1;
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 9;
+
+alias syscall R3;
+
+syscall = [([PTBR + 2 * (userSP - 5)/ 512] * 512) + ((userSP - 5) % 512)];
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] =syscall;
+alias cur_pcb_entry R6;
+cur_pcb_entry = PROCESS_TABLE+ [SYSTEM_STATUS_TABLE+1]*16;
+
+alias physicalAddrRetVal R4;
+physicalAddrRetVal = ([PTBR + 2 * (userSP - 1)/ 512] * 512) + ((userSP - 1) % 512);
+
+if( syscall==1 ) then
+    alias arg1 R7;
+    arg1 = [([PTBR + 2 * (userSP - 4)/ 512] * 512) + ((userSP - 4) % 512)];
+    alias arg2 R8;
+    arg2 = [([PTBR + 2 * (userSP - 3)/ 512] * 512) + ((userSP - 3) % 512)];
+    alias inode_entry R9;
+    inode_entry =INODE_TABLE;
+    alias counter R10;
+    counter =0;
+    alias flag R11;
+    flag=0;
+    while( counter < MAX_FILE_NUM ) do
+        if([inode_entry+1]==arg1) then
+                flag =1;
+                break;
+        endif ;
+        inode_entry = inode_entry +16;
+        counter = counter +1;
+    endwhile;
+    if(flag ==1) then
+
+        [physicalAddrRetVal]=0;
+        goto _ret;
+    endif;
+    inode_entry =INODE_TABLE;
+    counter =0;
+    flag=0;
+    while( counter < MAX_FILE_NUM ) do
+        if([inode_entry+1]==-1) then
+                flag =1;
+                break;
+        endif ;
+        inode_entry = inode_entry +16;
+        counter = counter +1;
+    endwhile;
+    if(flag ==0) then
+        [physicalAddrRetVal]=-1;
+        goto _ret;
+    endif;
+    [inode_entry+1]=arg1;
+    [inode_entry+2]=0;
+    [inode_entry]=DATA;
+    [inode_entry+8]=-1;
+    [inode_entry+9]=-1;
+    [inode_entry+10]=-1;
+    [inode_entry+11]=-1;
+    [inode_entry+3]=[cur_pcb_entry+3];
+    [inode_entry+4]= arg2;
+    alias root_entry R11;
+    root_entry = ROOT_FILE +8*counter;
+    [root_entry]=[inode_entry+1];
+    [root_entry+1]=[inode_entry+2];
+    [root_entry+2]=[inode_entry];
+    [root_entry+3]=[USER_TABLE + [inode_entry+3]*2];//??????????????????????????????
+    [root_entry+4]=[inode_entry+4];
+    [physicalAddrRetVal]=0;
+    goto _ret;
+endif ;
+
+if( syscall==4) then
+    alias arg1 R7;
+    arg1 = [([PTBR + 2 * (userSP - 4)/ 512] * 512) + ((userSP - 4) % 512)];
+    //Find the index of the file in the Inode Table.
+     alias inode_entry R9;
+    inode_entry =INODE_TABLE;
+    alias counter R10;
+    counter =0;
+    alias flag R11;
+    flag=0;
+    while( counter < MAX_FILE_NUM ) do
+        if([inode_entry+1]==arg1) then
+                flag =1;
+                break;
+        endif ;
+        inode_entry = inode_entry +16;
+        counter = counter +1;
+    endwhile;
+    //If file is not present in the Inode Table, return 0.
+    if(flag ==0) then
+        [physicalAddrRetVal]=0;
+        goto _ret;
+    endif;
+
+    //If the file is not a DATA file, return -1.
+    //If the exclusive permission is set
+        //if the current user is not root and the current user does not own the file
+            //return -1. 
+    if( [inode_entry]!=DATA)then
+            [physicalAddrRetVal] =-1;
+            goto _ret;
+    endif ;
+    if(([inode_entry+4]==EXCLUSIVE &&[SYSTEM_STATUS_TABLE]!=1 &&[inode_entry+3]!=[SYSTEM_STATUS_TABLE]) ) then
+            [physicalAddrRetVal] =-1;
+            goto _ret;
+    endif;
+    //Acquire a lock on the file by calling the acquire_inode() function in the Resource Manager module.
+    multipush(R7,R9,R10,R11);
+    R1=ACQUIRE_INODE;
+    R2=counter;
+    R3= [SYSTEM_STATUS_TABLE+1];
+    call MOD_0;
+    multipop(R7,R9,R10,R11);    
+    // Check if the the file open count is -1 in the  File Status Table . If not, release the lock and return -2.    
+    // File is open, cannot be deleted 
+    if( [FILE_STATUS_TABLE + 4*counter+1]!=-1 ) then
+        multipush(R7,R9,R10,R11);
+        R1=RELEASE_INODE;
+        R2=counter;
+        R3= [SYSTEM_STATUS_TABLE+1];
+        call MOD_0;
+        multipop(R7,R9,R10,R11);   
+        [physicalAddrRetVal] =-2;
+        goto _ret;
+    endif ;
+    alias inode R12;
+    inode = counter;
+    counter= 8; 
+
+//For each disk block allocated to the file, do    /* Check Inode Table */
+//    If the disk block is loaded into a buffer, and the DIRTY BIT is set, reset the dirty bit. 
+//    Check the Buffer Table 
+//    Call the release_block() function in the Memory Manager module to free the disk block.        
+
+    while( counter<12 ) do
+        alias blocknum R5;
+        blocknum =[inode_entry+counter];
+        if(blocknum!=-1) then 
+            alias buffer_entry R8;
+            buffer_entry =BUFFER_TABLE + (blocknum%MAX_BUFFER)*4;
+            if([buffer_entry]==blocknum &&[buffer_entry+1]==1) then
+                [buffer_entry+1] =0 ;
+            endif;
+            multipush(R4,R5,R7,R8,R9,R10,R11,R12);
+            R1=RELEASE_BLOCK;
+            R2=blocknum;
+            R3=[SYSTEM_STATUS_TABLE+1];
+            call MOD_2;
+            multipop(R4,R5,R7,R8,R9,R10,R11,R12);
+        endif;
+        counter =counter+1;
+    endwhile;
+    //Invalidate (set to -1) the Inode Table of the file.
+    counter=0;
+    while( counter<16 ) do
+        [inode_entry+counter]=-1;
+        counter =counter+1;
+    endwhile ;
+    //Update the Root file by invalidating the entry for the file.
+
+    alias root_fl R13;
+    root_fl = ROOT_FILE+inode*8;
+    counter =0;
+    while(counter<5)do 
+        [root_fl+counter]= -1;
+        counter=counter+1;
+    endwhile;  
+    [inode_entry+1] = -1;
+    //Release the lock on the file by calling the release_inode() function in the Resource Manager module.
+    multipush(R5,R7,R8,R9,R10,R11,R12);
+    R1=RELEASE_INODE;
+    R2=[SYSTEM_STATUS_TABLE+1];
+    call MOD_0;
+    multipop(R5,R7,R8,R9,R10,R11,R12);
+    [physicalAddrRetVal]=0;
+   goto _ret;
+endif;
+
+
+
+_ret:
+[PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 9] = 0;
+SP = [PROCESS_TABLE + [SYSTEM_STATUS_TABLE + 1] * 16 + 13];
+ireturn;

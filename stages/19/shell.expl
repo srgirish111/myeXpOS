@@ -1,0 +1,15 @@
+int main()
+{
+decl
+    int temp,a;
+enddecl
+begin
+    temp = exposcall ("Read", -1,  a);
+    breakpoint;
+    temp = exposcall ("Exec" , a);
+    if(temp== -1)then
+		temp=exposcall("Write",-2,"not found");
+	endif;
+    return 0;
+end
+}
